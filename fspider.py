@@ -35,7 +35,8 @@ class UrlParser(object):
 
 	@staticmethod
 	def _get_domain(url):
-		return '.'.join(urlsplit(url).netloc.split('.')[-2:])
+		# return '.'.join(urlsplit(url).netloc.split('.')[-2:])
+		return urlsplit(url).netloc
 
 	@classmethod
 	def parse(cls, top_url, url_map=[], same_domain=True):
@@ -55,9 +56,10 @@ class UrlParser(object):
 				if url[0] != '/':
 					url = '/' + url
 				url = base_url + url
+			# print(base_domain, cls._get_domain(url))
 			if (url not in url_map and
 				(not same_domain or base_domain == cls._get_domain(url))):
-				
+
 				url_map.append(url)
 		return url_map
 
@@ -66,19 +68,32 @@ class FSpider(object):
 	def __init__(self, urls):
 		super()
 		self.urls = urls
-		self.verbose = DEBUG.INFO
+		self._verbose = DEBUG.INFO
+		self._out_path = False
 
 	def verbosity(self, val=None):
 		if type(val) == int:
-			self.verbose = val
-		return self.verbose
+			self._verbose = val
+		return self._verbose
 
 	def same_domain(self, val=None):
 		if type(val) == bool:
-			self.same_domain = val
-		return self.same_domain
+			self._same_domain = val
+		return self._same_domain
+
+	def out_file(self, val=None):
+		if type(val) == str:
+			self._out_path = val
+		return self._out_path
 
 	def spidey(self):
+		out = False
+		if self._out_path:
+			try:
+				out = open(self._out_path, 'w')
+			except:
+				traceback.print_exc(file=sys.stdout)
+
 		for url in self.urls:
 			if not UrlParser.PROT_RE.search(url):
 				url = 'http://' + url
@@ -101,12 +116,14 @@ class FSpider(object):
 				try:
 					url = to_visit.pop()
 					print('Trying:', url, '\tstatus:', end='')
-					url_map = UrlParser.parse(url, url_map, self.same_domain)
+					if out:
+						print(url, file=out)
+					url_map = UrlParser.parse(url, url_map, self._same_domain)
 					visited.append(url)
 					for u in url_map:
 						if u not in visited:
 							to_visit.append(u)
-					if self.verbose >= DEBUG.VERBOSE:
+					if self._verbose >= DEBUG.VERBOSE:
 						print('url_map:', url_map)
 						print('visited:', visited)
 						print('to_visit:', to_visit)
@@ -117,10 +134,12 @@ class FSpider(object):
 					print('FAIL')
 				except requests.ConnectionError:
 					print('CONNECTION_FAIL!\a')
-					if self.verbose >= DEBUG.VERBOSE:
+					if self._verbose >= DEBUG.VERBOSE:
 						print ('-'*30)
 						traceback.print_exc(file=sys.stdout)
 						print ('-'*30)
+		if out:
+			out.close()
 
 def main():
 	import argparse
@@ -132,6 +151,8 @@ def main():
 	# verbosity level
 	parser.add_argument('--verbose', metavar='INT', type=int,
 		help='Verbosity level', default=0)
+	parser.add_argument('--out-file', metavar='PATH', type=str,
+		help='Output path', default=None)
 	parser.add_argument('--no-same-domain', help='spider different domains',
 		action='store_false', default=True)
 
@@ -139,6 +160,7 @@ def main():
 	spider = FSpider(args.urls)
 	spider.same_domain(args.no_same_domain)
 	spider.verbosity(args.verbose)
+	spider.out_file(args.out_file)
 	try:
 		spider.spidey()
 	except KeyboardInterrupt:
