@@ -13,8 +13,13 @@ class DEBUG(object):
 
 
 class UrlParser(object):
+	# anchor finder regexp
 	URL_RE = re.compile(r'<a href="([^"]*)"', re.I)
-	PROT_RE = re.compile(r'^https?://')
+	# protocol checker regexp
+	PROT_RE = re.compile(r'^https?://', re.I)
+	# href directive finder (tel:, mailto:, sms: etc)
+	HREF_DIR_RE = re.compile(r'(tel|mailto|sms|callto|file|ftp):', re.I)
+
 	# add this too?
 	# r'https?://[^"]*\.[^"]*'
 
@@ -22,10 +27,10 @@ class UrlParser(object):
 	def _fetch_html(url):
 		# TODO: add force untrusted ssl support
 		# r = requests.head(url, allow_redirects=True, verify=False)
-		r = requests.head(url, allow_redirects=True)
+		r = requests.head(url, allow_redirects=True, timeout=30)
 		r.raise_for_status()
 		if r.headers['Content-Type'].startswith('text/'):
-			r = requests.get(url, allow_redirects=True)
+			r = requests.get(url, allow_redirects=True, timeout=30)
 			return r.text
 		return ''
 
@@ -50,17 +55,23 @@ class UrlParser(object):
 			pos = url.find('#')
 			if pos > -1:
 				url = url[:pos]
+			# skip empty urls
 			if len(url) == 0:
 				continue
+			# skip unwanted protocols
+			if cls.HREF_DIR_RE.search(url):
+				continue
+
 			if not cls.PROT_RE.search(url):
 				if url[0] != '/':
 					url = '/' + url
 				url = base_url + url
 			# print(base_domain, cls._get_domain(url))
-			if (url not in url_map and
-				(not same_domain or base_domain == cls._get_domain(url))):
+			if (url not in url_map and (not same_domain
+				or base_domain == cls._get_domain(url))):
 
 				url_map.append(url)
+
 		return url_map
 
 class FSpider(object):
@@ -121,12 +132,12 @@ class FSpider(object):
 					url_map = UrlParser.parse(url, url_map, self._same_domain)
 					visited.append(url)
 					for u in url_map:
-						if u not in visited:
+						if u not in visited and u not in to_visit:
 							to_visit.append(u)
 					if self._verbose >= DEBUG.VERBOSE:
-						print('url_map:', url_map)
-						print('visited:', visited)
-						print('to_visit:', to_visit)
+						print('url_map:', url_map, len(url_map))
+						print('visited:', visited, len(visited))
+						print('to_visit:', to_visit, len(to_visit))
 					print('SUCCESS')
 				except requests.HTTPError:
 					if url not in visited:
@@ -164,7 +175,7 @@ def main():
 	try:
 		spider.spidey()
 	except KeyboardInterrupt:
-		print('\n\nUser interrupted canceling and quiting\n\a')
+		print('\n\nUser interrupted. Canceling and quiting\n\a')
 
 if __name__ == "__main__":
    main()
