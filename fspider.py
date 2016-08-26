@@ -92,7 +92,7 @@ class FSpider(object):
 			self._same_domain = val
 		return self._same_domain
 
-	def out_file(self, val=None):
+	def output_file(self, val=None):
 		if type(val) == str:
 			self._out_path = val
 		return self._out_path
@@ -160,9 +160,9 @@ def main():
 	parser.add_argument('urls', metavar='URL', type=str, nargs='+',
 						help='Path to spider')
 	# verbosity level
-	parser.add_argument('--verbose', metavar='INT', type=int,
+	parser.add_argument('-v', '--verbose', metavar='INT', type=int,
 		help='Verbosity level', default=0)
-	parser.add_argument('--out-file', metavar='PATH', type=str,
+	parser.add_argument('-o', '--output-file', metavar='PATH', type=str,
 		help='Output path', default=None)
 	parser.add_argument('--no-same-domain', help='spider different domains',
 		action='store_false', default=True)
@@ -171,7 +171,7 @@ def main():
 	spider = FSpider(args.urls)
 	spider.same_domain(args.no_same_domain)
 	spider.verbosity(args.verbose)
-	spider.out_file(args.out_file)
+	spider.output_file(args.output_file)
 	try:
 		spider.spidey()
 	except KeyboardInterrupt:
